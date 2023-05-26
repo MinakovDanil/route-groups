@@ -100,7 +100,6 @@ class Group
 
         $zip_codes = $this->getZipRadius();
 
-
         // id маршрутов группы (Все маршруты)
         $delivery_ids = [];
 
@@ -114,7 +113,6 @@ class Group
             // Получения delivery_zip в таблице лидов 
             $sql = "SELECT id, delivery_zip, delivery_state FROM leads_common WHERE origin_zip = '$zip_item' AND delivery_zip != '$zip_item'";
             $result = $db->query($sql);
-
 
             if ($result->num_rows > 0) {
 
@@ -148,53 +146,74 @@ class Group
         $delivery_count = count($delivery);
 
 
-        // if ($delivery_count >= 300) {
+        if ($delivery_count > 0) {
 
-        // Подсчет всех delivery зипов в каждом штате
-        $delivery_count_values = array_count_values($delivery);
+            // Подсчет всех delivery зипов в каждом штате
+            $delivery_count_values = array_count_values($delivery);
 
-        // Количество delivery зипов в штате json
-        $json_delivery_states = json_encode($delivery_count_values);
+            // Количество delivery зипов в штате в json формате
+            $json_delivery_states = json_encode($delivery_count_values);
+
+            // Отсутствующие штаты
+            $missing_states = [];
 
 
-        // Отсутствующие штаты
-        $missing_states = [];
+            // Минимальное количество delivery в штатах
+            $minimum_number_states = min($delivery_count_values);
 
 
-        // Перебор основных штатов
-        foreach ($fifty_states as $state_item) {
-            // Если хотя бы одного основного штата нет в массиве $delivery_count_values
-            if (!array_key_exists($state_item, $delivery_count_values)) {
+            // Перебор основных штатов
+            foreach ($fifty_states as $state_item) {
+                // Если хотя бы одного основного штата нет в массиве $delivery_count_values
+                if (!array_key_exists($state_item, $delivery_count_values)) {
 
-                // Заносим данный штат в массив отсутствующих
-                array_push($missing_states, $state_item);
+                    // Заносим данный штат в массив отсутствующих
+                    array_push($missing_states, $state_item);
+                }
             }
+
+
+            $sql = "INSERT INTO zip_groups (city, state, lat, lon, zip, count_delivery_zip, minimum_number_states, count_states) VALUES ('$this->city', '$this->state', $this->latitude, $this->longitude, '$this->zip', $delivery_count, $minimum_number_states, '$json_delivery_states')";
+            $result = $db->query($sql);
+
+            // id группы
+            $current_group_id = $db->insert_id;
+
+            // Перебираем id всех маршрутов данной группы
+            foreach ($delivery_ids as $id) {
+                // Добавляем маршруту id группы
+                $sql = "UPDATE leads_common SET group_id = $current_group_id WHERE id = $id";
+                $db->query($sql);
+            }
+
+
+
+            echo "<hr>Группа: $this->city";
+            echo "<br>Всего маршрутов: " . count($delivery_ids);
+            echo "<br>Уникальных маршрутов: " . $delivery_count;
+
+            echo "<br>Отсутствующие штаты: " . implode(", ", $missing_states);
+
+            echo '<pre>';
+            print_r($delivery_count_values);
+            echo '</pre>';
+            echo 'В json формате: ';
+            echo $json_delivery_states;
+        } else {
+
+
+            echo "<br><br><br>Группа: $this->city<br>Всего маршрутов:0<br><br><br>";
+
+            $sql = "INSERT INTO zip_groups (city, state, lat, lon, zip, count_delivery_zip, minimum_number_states, count_states) VALUES ('$this->city', '$this->state', $this->latitude, $this->longitude, '$this->zip', 0, 0, '')";
+            $result = $db->query($sql);
         }
-
-
-
-
-        echo "<hr>Группа: $this->city";
-        echo "<br>Всего маршрутов: " . count($delivery_ids);
-        echo "<br>Уникальных маршрутов: " . $delivery_count;
-
-        echo "<br>Отсутствующие штаты: " . implode(", ", $missing_states);
-
-
-        if (min($delivery_count_values) < 4) {
-            echo '<br>';
-            $minimal_delivery_state = min($delivery_count_values);
-            echo "Минимальное количество delivery в штате: $minimal_delivery_state";
-        }
-
-        echo '<pre>';
-        print_r($delivery_count_values);
-        echo '</pre>';
-        echo 'В json формате: ';
-        echo $json_delivery_states;
-        // }
     }
 }
+
+
+// $group = new Group('New York', 'New York', 11213, 40.66, -73.94);
+// $group->createGroup();
+// $group->checkBiggestCities();
 
 
 
@@ -202,7 +221,7 @@ $cities = new BiggestCities;
 $cities_array = $cities->getCities();
 $cities_count = count($cities_array);
 
-for ($i = 0; $i <= 30; $i++) {
+for ($i = 300; $i < $cities_count; $i++) {
 
     $city = $cities_array[$i]['city'];
     $state = $cities_array[$i]['state'];
