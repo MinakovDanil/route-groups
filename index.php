@@ -76,15 +76,16 @@ class Group
     }
 
 
-    // public function removeLeadsPay()
-    // {
+    public function removeLeadsPay()
+    {
 
-    //     // Соединение с БД
-    //     $db = Db::getConnection();
+        // Соединение с БД
+        $db = Db::getConnection();
 
-    //     $sql = "DELETE FROM leads WHERE carrier_pay < 100";
-    //     $result = $db->query($sql);
-    // }
+        $sql = "DELETE FROM leads_2021 WHERE carrier_pay < 100";
+        $result = $db->query($sql);
+    }
+
 
 
     public function createGroup()
@@ -100,10 +101,10 @@ class Group
         $zip_codes = $this->getZipRadius();
 
 
-        // id маршрутов группы
+        // id маршрутов группы (Все маршруты)
         $delivery_ids = [];
 
-        // Все delivery зипы 
+        // Все уникальные delivery зипы 
         $delivery = [];
 
 
@@ -111,7 +112,7 @@ class Group
         foreach ($zip_codes as $zip_item) {
 
             // Получения delivery_zip в таблице лидов 
-            $sql = "SELECT id, delivery_zip, delivery_state FROM leads WHERE origin_zip = '$zip_item' AND delivery_zip != '$zip_item'";
+            $sql = "SELECT id, delivery_zip, delivery_state FROM leads_common WHERE origin_zip = '$zip_item' AND delivery_zip != '$zip_item'";
             $result = $db->query($sql);
 
 
@@ -141,15 +142,19 @@ class Group
             }
         }
 
+
+
+        // Количество уникальных delivery
         $delivery_count = count($delivery);
 
 
         // if ($delivery_count >= 300) {
 
-        // Подсчет всех значения массива
+        // Подсчет всех delivery зипов в каждом штате
         $delivery_count_values = array_count_values($delivery);
 
-
+        // Количество delivery зипов в штате json
+        $json_delivery_states = json_encode($delivery_count_values);
 
 
         // Отсутствующие штаты
@@ -161,12 +166,15 @@ class Group
             // Если хотя бы одного основного штата нет в массиве $delivery_count_values
             if (!array_key_exists($state_item, $delivery_count_values)) {
 
-                // Заносим все отсутствующие штаты в массив
+                // Заносим данный штат в массив отсутствующих
                 array_push($missing_states, $state_item);
             }
         }
 
-        echo "<hr>Группа: $this->city ";
+
+
+
+        echo "<hr>Группа: $this->city";
         echo "<br>Всего маршрутов: " . count($delivery_ids);
         echo "<br>Уникальных маршрутов: " . $delivery_count;
 
@@ -181,39 +189,27 @@ class Group
 
         echo '<pre>';
         print_r($delivery_count_values);
-        echo '</pre><br>';
+        echo '</pre>';
+        echo 'В json формате: ';
+        echo $json_delivery_states;
         // }
     }
 }
 
 
-// $group = new Group('New York', 'New York', 11213, 40.66, -73.94);
-// $group = new Group('Los Angeles', 'California', 90034, 34.02, -118.41);
-// $group = new Group('Chicago', 'Illinois', 60608, 41.84, -87.68);
-// $group = new Group('Houston', 'Texas', 77009, 29.78, -95.39);
-// $group = new Group('Philadelphia', 'Pennsylvania', 19140, 40.01, -75.13);
-// $group = new Group('Phoenix', 'Arizona', 85021, 33.57, -112.09);
-// $group = new Group('San Antonio', 'Texas', 78201, 29.47, -98.53);
-// $group = new Group('San Diego', 'California', 92123, 32.82, -117.14);
-// $group = new Group('Dallas', 'Texas', 75201, 32.78, -96.80);
-$group = new Group('San Jose', 'California', 95121, 37.30, -121.82);
-// $group = new Group('Boston', 'Massachusetts', 02127, 42.33, -71.02); // 0
-$group->createGroup();
 
+$cities = new BiggestCities;
+$cities_array = $cities->getCities();
+$cities_count = count($cities_array);
 
+for ($i = 0; $i <= 30; $i++) {
 
-// $cities = new BiggestCities;
-// $cities_array = $cities->getCities();
-// $cities_count = count($cities_array);
+    $city = $cities_array[$i]['city'];
+    $state = $cities_array[$i]['state'];
+    $zip = $cities_array[$i]['zip'];
+    $lat = $cities_array[$i]['lat'];
+    $lon = $cities_array[$i]['lon'];
 
-// for ($i = 0; $i <= 30; $i++) {
-
-//     $city = $cities_array[$i]['city'];
-//     $state = $cities_array[$i]['state'];
-//     $zip = $cities_array[$i]['zip'];
-//     $lat = $cities_array[$i]['lat'];
-//     $lon = $cities_array[$i]['lon'];
-
-//     $grop = new Group($city, $state, $zip, $lat, $lon);
-//     $grop->createGroup();
-// }
+    $grop = new Group($city, $state, $zip, $lat, $lon);
+    $grop->createGroup();
+}
